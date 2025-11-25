@@ -1,8 +1,8 @@
 [![Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/tsurdan)
 
-# Just News
+# Just News Firefox mobile
 
-**Just News** is a Chrome extension that automatically replaces misleading or clickbait news headlines with clear, factual, and objective alternatives. It enhances your browsing experience by letting you know the essence of an article—without needing to click.
+**Just News mobile** is a Firefox mobile version of [Just News](https://github.com/tsurdan/Just-News) by Tzur Danino, that automatically replaces misleading or clickbait news headlines with clear, factual, and objective alternatives. It enhances your browsing experience by letting you know the essence of an article—without needing to click.
 
 ---
 <img width="1280" height="800" alt="new-fox" src="https://github.com/user-attachments/assets/83dfcf19-a16f-4ab6-8617-f23969abd2a9" />
@@ -19,9 +19,9 @@
 
 ## 🔑 Setup Instructions
 
-1. Download the extention from [chrome web store](https://chromewebstore.google.com/detail/just-news/bjeicinigicmeicfnibabdfanajpigln)
+1. Download the extention from firefox add-on sore
 2. Enter to your favorite news website
-3. Click on the Just-News extention icon
+3. Click on the Just-News extention icon (at options->extensions)
 4. Follow the guide in the extension popup to generate and add your **Groq API key**.
 5. Done. No more clickbait headlines.
 
@@ -56,16 +56,6 @@ Just News is designed with privacy in mind:
 
 For more details check the `privacy policy.md` file
 
----
-
-## 💻 Dev Setup Instructions
-
-1. Clone this repository.
-2. Load it as an unpacked extension in Chrome:
-   - Go to `chrome://extensions/`
-   - Enable **Developer mode**
-   - Click **"Load unpacked"** and select the project folder
-3. Follow the guide in the extension popup to generate and add your **Groq API key**.
 
 ---
 ## 🤝 Contributing
