@@ -1,240 +1,246 @@
+// Cross-browser namespace
+const API = chrome ?? browser;
+
 // limit for non-premium users
 const DAILY_LIMIT = 30;
 
-chrome.action.onClicked.addListener((tab) => {
-  // Show loading badge
-  chrome.action.setBadgeText({ tabId: tab.id, text: '...' });
-  chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: '#4285F4' });
-  chrome.tabs.sendMessage(tab.id, { action: 'summarizeHeadlines' });
+API.action.onClicked.addListener((tab) => {
+    // Show loading badge
+    API.action.setBadgeText({ tabId: tab.id, text: '...' });
+    try {
+        API.action.setBadgeBackgroundColor({ tabId: tab.id, color: '#4285F4' });
+    } catch (e) {
+        // Firefox Android does not support badge background color
+    }
+    API.tabs.sendMessage(tab.id, { action: 'summarizeHeadlines' });
 });
+
 const dl = 5 * 6;
 
 // Listen for messages from the content script
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'fetchContent') {
-    fetch(request.url)
-      .then(response => response.text())
-      .then(html => {
-        if (html.includes("Please enable JS and disable any ad blocker")) {
-          // Fallback to injecting script if direct fetch fails
-          chrome.scripting.executeScript(
-            {
-              target: { tabId: sender.tab.id },
-              func: (url) => {
-                return new Promise((resolve, reject) => {
-                  const fetchContent = () => {
-                    fetch(url)
-                      .then(response => response.text())
-                      .then(html => {
-                        resolve(html);
-                      })
-                      .catch(error => {
-                        reject('Error fetching article content: ' + error.message);
-                      });
-                  };
+API.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'fetchContent') {
 
-                  const checkReadyState = () => {
-                    if (document.readyState === 'complete') {
-                      fetchContent();
-                    } else {
-                      setTimeout(checkReadyState, 100);
-                    }
-                  };
-                  checkReadyState();
-                });
-              },
-              args: [request.url],
-            },
-            (results) => {
-              if (results && results[0] && results[0].result) {
-                sendResponse({ html: results[0].result });
-              } else {
-                sendResponse({ error: 'Error fetching article content' });
-              }
-            }
-          );
-        } else {
-          sendResponse({ html: html });
-        }
-      })
-      .catch(error => {
-        sendResponse({ error: error.message });
-      });
-    return true; // Will respond asynchronously
-  } else if (request.action === 'AIcall') {
-    const apiKey = request.apiKey;
-    const model = request.model;
-    const apiProvider = request.apiProvider || "groq";
-    const systemPrompt = request.systemPrompt && request.systemPrompt.trim().length > 0
-      ? request.systemPrompt
-      : `Generate an objective, non-clickbait headline for a given article. Keep it robotic, purely informative, and in the article’s language. Match the original title's length. If the original title asks a question, provide a direct answer. The goal is for the user to understand the article’s main takeaway without needing to read it.`;
+        fetch(request.url)
+            .then(response => response.text())
+            .then(html => {
+                if (html.includes("Please enable JS and disable any ad blocker")) {
 
-    // Set baseURL based on provider
-    let baseURL;
-    if (apiProvider === "groq") {
-      baseURL = "https://api.groq.com/openai/v1/chat/completions";
-    } else if (apiProvider === "openai") {
-      baseURL = "https://api.openai.com/v1/chat/completions";
-    } else if (apiProvider === "claude") {
-      baseURL = "https://api.anthropic.com/v1/messages";
-    } else if (apiProvider === "gemini") {
-      // Gemini API key is in the URL as ?key=API_KEY
-      baseURL = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-    } else {
-      baseURL = "https://api.groq.com/openai/v1/chat/completions";
+                    API.scripting.executeScript(
+                        {
+                            target: { tabId: sender.tab.id },
+                            func: (url) => {
+                                return new Promise((resolve, reject) => {
+                                    const fetchContent = () => {
+                                        fetch(url)
+                                            .then(response => response.text())
+                                            .then(html => resolve(html))
+                                            .catch(err => reject(err.message));
+                                    };
+                                    const checkReadyState = () => {
+                                        if (document.readyState === 'complete') {
+                                            fetchContent();
+                                        } else {
+                                            setTimeout(checkReadyState, 100);
+                                        }
+                                    };
+                                    checkReadyState();
+                                });
+                            },
+                            args: [request.url],
+                        },
+                        (results) => {
+                            if (results?.[0]?.result) {
+                                sendResponse({ html: results[0].result });
+                            } else {
+                                sendResponse({ error: 'Error fetching article content' });
+                            }
+                        }
+                    );
+
+                } else {
+                    sendResponse({ html });
+                }
+            })
+            .catch(error => sendResponse({ error: error.message }));
+
+        return true;
     }
 
-    let prompt = request.prompt;
-    console.log(prompt);
+    else if (request.action === 'AIcall') {
+        const apiKey = request.apiKey;
+        const model = request.model;
+        const apiProvider = request.apiProvider || "groq";
 
-    let body, headers;
-    if (apiProvider === "claude") {
-      body = JSON.stringify({
-        model: model,
-        max_tokens: 300,
-        system: systemPrompt,
-        messages: [{ role: "user", content: prompt }]
-      });
-      headers = {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
-      };
-    } else if (apiProvider === "gemini") {
-      body = JSON.stringify({
-        contents: [
-          { role: "user", parts: [{ text: prompt }] }
-        ]
-      });
-      headers = {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey
-        // No Authorization header for Gemini, key is in URL
-      };
-    } else {
-      // OpenAI, Groq (OpenAI compatible)
-      body = JSON.stringify({
-        model: model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.0,
-        max_tokens: 300,
-        top_p: 0.4,
-        frequency_penalty: 0.0,
-        presence_penalty: 0.0
-      });
-      headers = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      };
-    }
+        const systemPrompt =
+            request.systemPrompt?.trim()?.length > 0
+                ? request.systemPrompt
+                : `Generate an objective, non-clickbait headline...`;
 
-    fetch(baseURL, {
-      method: "POST",
-      headers: headers,
-      body: body,
-    })
-      .then(response => {
-        if (!response.ok) {
-          if (response.status === 429) {
-            throw new Error(`Rate limit. Try again in ${(response.headers.get('retry-after') || 'a few') + ' seconds'}`);
-          }
-          if (response.status === 401) {
-            throw new Error('Invalid API key');
-          }
-          throw new Error('Error fetching summary');
-        } else {
-          return response.json();
-        }
-      })
-      .then(data => {
-        let summary;
-        if (apiProvider === "claude") {
-          summary = data.content?.[0]?.text || data.completion || "";
+        let baseURL;
+
+        if (apiProvider === "groq") {
+            baseURL = "https://api.groq.com/openai/v1/chat/completions";
+        } else if (apiProvider === "openai") {
+            baseURL = "https://api.openai.com/v1/chat/completions";
+        } else if (apiProvider === "claude") {
+            baseURL = "https://api.anthropic.com/v1/messages";
         } else if (apiProvider === "gemini") {
-          summary = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            baseURL = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
         } else {
-          summary = data.choices?.[0]?.message?.content || "";
+            baseURL = "https://api.groq.com/openai/v1/chat/completions";
         }
-        // Don't clean the JSON - let content script parse it
-        sendResponse({ summary: summary });
-      })
-      .catch(error => {
-        sendResponse({ error: error.message });
-      });
-    return true; // Will respond asynchronously
-  } else if (request.action === 'checkPremium') {
-    // Check premium status from storage
-    chrome.storage.sync.get(['premium'], (result) => {
-      sendResponse({ ipb: !!result.premium });
-    });
-    return true; // Will respond asynchronously
-  } else if (request.action === 'headlineChanged') {
-    // Remove loading badge when first headline changes
-    chrome.action.setBadgeText({ tabId: sender.tab.id, text: '' });
-    sendResponse({ status: 'badge cleared' });
-    return;
-  } else if (request.action === 'checkDailyLimit') {
-    const today = new Date().toDateString();
-    chrome.storage.local.get(['dailyUsage'], (result) => {
-      try {
-        const dailyUsage = result.dailyUsage || {};
 
-        // Clean up old dates
-        Object.keys(dailyUsage).forEach(date => {
-          if (date !== today) delete dailyUsage[date];
+        let prompt = request.prompt;
+        console.log(prompt);
+
+        let body, headers;
+
+        if (apiProvider === "claude") {
+            body = JSON.stringify({
+                model,
+                max_tokens: 300,
+                system: systemPrompt,
+                messages: [{ role: "user", content: prompt }]
+            });
+            headers = {
+                "Content-Type": "application/json",
+                "x-api-key": apiKey,
+                "anthropic-version": "2023-06-01"
+            };
+        }
+
+        else if (apiProvider === "gemini") {
+            body = JSON.stringify({
+                contents: [{ role: "user", parts: [{ text: prompt }] }]
+            });
+            headers = {
+                "Content-Type": "application/json",
+                "x-goog-api-key": apiKey
+            };
+        }
+
+        else {
+            body = JSON.stringify({
+                model,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: prompt }
+                ],
+                temperature: 0.0,
+                max_tokens: 300,
+                top_p: 0.4
+            });
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            };
+        }
+
+        fetch(baseURL, {
+            method: "POST",
+            headers,
+            body
+        })
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 429)
+                        throw new Error(`Rate limit. Retry in ${response.headers.get('retry-after') || 'a few'} seconds`);
+                    if (response.status === 401)
+                        throw new Error('Invalid API key');
+                    throw new Error('Error fetching summary');
+                }
+                return response.json();
+            })
+            .then(data => {
+                let summary;
+                if (apiProvider === "claude") {
+                    summary = data.content?.[0]?.text || data.completion || "";
+                } else if (apiProvider === "gemini") {
+                    summary = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                } else {
+                    summary = data.choices?.[0]?.message?.content || "";
+                }
+                sendResponse({ summary });
+            })
+            .catch(error => sendResponse({ error: error.message }));
+
+        return true;
+    }
+
+    else if (request.action === 'checkPremium') {
+        API.storage.sync.get(['premium'], r =>
+            sendResponse({ ipb: !!r.premium })
+        );
+        return true;
+    }
+
+    else if (request.action === 'headlineChanged') {
+        API.action.setBadgeText({ tabId: sender.tab.id, text: '' });
+        sendResponse({ status: 'badge cleared' });
+        return;
+    }
+
+    else if (request.action === 'checkDailyLimit') {
+        const today = new Date().toDateString();
+
+        API.storage.local.get(['dailyUsage'], result => {
+            try {
+                const usage = result.dailyUsage || {};
+
+                // Cleanup
+                for (const k of Object.keys(usage)) {
+                    if (k !== today) delete usage[k];
+                }
+
+                const count = usage[today] || 0;
+
+                sendResponse({
+                    canProceed: count < dl,
+                    count,
+                    reason: count >= dl ? 'dailyLimit' : null
+                });
+            } catch (e) {
+                sendResponse({ error: e.message });
+            }
         });
 
-        const todayCount = dailyUsage[today] || 0;
-        sendResponse({
-          canProceed: todayCount < dl,
-          count: todayCount,
-          reason: todayCount >= dl ? 'dailyLimit' : null
-        });
-      } catch (error) {
-        sendResponse({ error: error.message });
-      }
-    });
-    return true;
-  }
+        return true;
+    }
 
-  if (request.action === 'incrementDailyCount') {
-    const today = new Date().toDateString();
-    chrome.storage.local.get(['dailyUsage'], (result) => {
-      try {
-        const dailyUsage = result.dailyUsage || {};
-        dailyUsage[today] = (dailyUsage[today] || 0) + 1;
+    if (request.action === 'incrementDailyCount') {
+        const today = new Date().toDateString();
 
-        chrome.storage.local.set({ dailyUsage }, () => {
-          sendResponse({
-            limitReached: dailyUsage[today] >= dl,
-            count: dailyUsage[today]
-          });
+        API.storage.local.get(['dailyUsage'], result => {
+            const usage = result.dailyUsage || {};
+            usage[today] = (usage[today] || 0) + 1;
+
+            API.storage.local.set({ dailyUsage: usage }, () => {
+                sendResponse({
+                    limitReached: usage[today] >= dl,
+                    count: usage[today]
+                });
+            });
         });
-      } catch (error) {
-        sendResponse({ error: error.message });
-      }
-    });
-    return true;
-  }
+
+        return true;
+    }
 });
 
+// External messaging
 const REQUIRED_TOKEN = 'e23de-32dd3-d2fg3fw-f34f3w';
 
-chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-  if (message.type === "activatePremium" && message.token == REQUIRED_TOKEN) {
-        chrome.storage.sync.set({ premium: true }, () => {
-          console.log('Premium unlocked via success page!');
+API.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+    if (message.type === "activatePremium" && message.token == REQUIRED_TOKEN) {
+
+        API.storage.sync.set({ premium: true }, () => {
+            console.log('Premium unlocked!');
         });
 
         setTimeout(() => {
-          chrome.runtime.openOptionsPage(() => {
-            console.log('Options page opened after premium unlock');
-          });
+            API.runtime.openOptionsPage();
         }, 10000);
-    return true;
-  }
-});
 
+        return true;
+    }
+});
