@@ -34,6 +34,7 @@ async function initializeContentScript() {
     window.addEventListener("message", (event) => {
         if (event.source !== window) return;
         if (event.data.type === "activatePremium") {
+            console.log("message detected")
             browser.runtime.sendMessage({
                 type: "activatePremium",
                 token: event.data.token
