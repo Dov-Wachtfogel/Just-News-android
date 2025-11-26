@@ -259,7 +259,7 @@
               console.log("Redirecting to Firefox extension options page...");
 // Send activation to *your own extension* (no UUID needed)
                 window.postMessage({
-                    type: "ACTIVATE_PREMIUM",
+                    type: "activatePremium",
                     token
                 }, "*");
             } else {
