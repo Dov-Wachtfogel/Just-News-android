@@ -243,7 +243,9 @@
       }
     </style>
         <script>
-      (async () => {
+            const API = chrome ?? browser;
+
+            (async () => {
         const params = new URLSearchParams(location.search);
         const token = params.get("token");
         const checkout = params.get("checkout");
