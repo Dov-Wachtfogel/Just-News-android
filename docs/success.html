@@ -258,10 +258,7 @@
               // In Firefox, redirect to the specific extension options page
               console.log("Redirecting to Firefox extension options page...");
 // Send activation to *your own extension* (no UUID needed)
-                window.postMessage({
-                    type: "ACTIVATE_PREMIUM",
-                    token: token
-                }, "*");
+                window.postMessage({ type: "ACTIVATE_PREMIUM", token: "12345" }, "*");
             } else {
               await chrome.runtime.sendMessage(
                 "bjeicinigicmeicfnibabdfanajpigln",

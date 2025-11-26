@@ -32,14 +32,9 @@ async function initializeContentScript() {
 
 
     window.addEventListener("message", (event) => {
-        console.log("Got message in content script:", event.data);
-        if (event.source !== window) return;
+        console.log("Content script received:", event.data);
         if (event.data.type === "ACTIVATE_PREMIUM") {
-            console.log("activatePremium message detected")
-            browser.runtime.sendMessage({
-                type: "activatePremium",
-                token: event.data.token
-            });
+            browser.runtime.sendMessage({ type: "activatePremium", token: event.data.token });
         }
     });
 
