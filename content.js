@@ -23,7 +23,46 @@ function ipb() {
 
 async function initializeContentScript() {
   if (isInitialized) return;
-  
+     if (window.location.href.includes(".github.io/Just-News")){
+         (async () => {
+             const params = new URLSearchParams(location.search);
+             const token = params.get("token");
+             const checkout = params.get("checkout");
+
+             if (checkout !== "success" || !token) {
+                 console.log("Invalid activation link.");
+                 return;
+             }
+
+             const isFirefox = navigator.userAgent.includes('Firefox');
+
+             try {
+                 if (isFirefox) {
+                     window.postMessage({ type: "activatePremium" }, "*");
+                     console.log("Firefox message sent");
+                 } else {
+                     // Chrome
+                     await chrome.runtime.sendMessage(
+                         "bjeicinigicmeicmeicfnibabdfanajpigln",  // your Chrome Web Store ID
+                         { type: "activatePremium", token }
+                     );
+                     console.log("Premium activated (Chrome)");
+                 }
+
+                 // Optional: Open options page after activation
+                 setTimeout(() => {
+                     if (isFirefox) {
+                     } else if (chrome.runtime && chrome.runtime.openOptionsPage) {
+                         chrome.runtime.openOptionsPage();
+                     }
+                 }, 2000);
+
+             } catch (e) {
+                 console.error("Failed to activate premium:", e);
+             }
+         })();
+
+  }
   // Initialize premium status
   await initializePremiumStatus();
   
