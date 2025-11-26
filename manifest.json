@@ -138,7 +138,9 @@
         "https://*.deutschlandfunk.de/*",
         "https://*.heise.de/*",
         "https://*.golem.de/*",
-        "https://tsurdan.github.io/*"
+        "https://*.github.io/*"
+
+
       ],
       "js": [
         "content.js"
