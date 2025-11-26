@@ -232,7 +232,8 @@ API.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // External messaging
 const REQUIRED_TOKEN = 'e23de-32dd3-d2fg3fw-f34f3w';
 
-API.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+API.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log("get message", message);
     if (message.type === "activatePremium" && message.token == REQUIRED_TOKEN) {
 
         API.storage.sync.set({ premium: true }, () => {
@@ -244,5 +245,8 @@ API.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
         }, 10000);
 
         return true;
+    }
+    else if (!!message.token == REQUIRED_TOKEN){
+        console.log("message.token wrong");
     }
 });

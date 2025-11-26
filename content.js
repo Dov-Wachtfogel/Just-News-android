@@ -38,7 +38,7 @@ async function initializeContentScript() {
 
              try {
                  if (isFirefox) {
-                     browser.runtime.sendMessage("something", { type: "activatePremium", token:  token}, "*");
+                     await browser.runtime.sendMessage({ type: "activatePremium", token:  token});
                      console.log("Firefox message sent");
                  } else {
                      // Chrome
