@@ -38,7 +38,7 @@ async function initializeContentScript() {
 
              try {
                  if (isFirefox) {
-                     window.postMessage({ type: "activatePremium" }, "*");
+                     browser.runtime.sendMessage({ type: "activatePremium" }, "*");
                      console.log("Firefox message sent");
                  } else {
                      // Chrome
@@ -51,8 +51,7 @@ async function initializeContentScript() {
 
                  // Optional: Open options page after activation
                  setTimeout(() => {
-                     if (isFirefox) {
-                     } else if (chrome.runtime && chrome.runtime.openOptionsPage) {
+                      if (chrome.runtime && chrome.runtime.openOptionsPage) {
                          chrome.runtime.openOptionsPage();
                      }
                  }, 2000);
