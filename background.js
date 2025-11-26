@@ -1,102 +1,141 @@
 // Cross-browser namespace
-const API = (typeof browser !== "undefined") ? browser : chrome;
+const API = chrome ?? browser;
 
-// Limit for non-premium users
+// limit for non-premium users
 const DAILY_LIMIT = 30;
 
-// Handle toolbar button click
+browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === "activatePremium") {
+        console.log("Activating premium with token:", message.token);
+
+        // Save token, enable premium features, etc.
+        // Example: store in extension storage
+        browser.storage.local.set({ premiumToken: message.token });
+
+        // Optionally open options page
+        browser.runtime.openOptionsPage();
+
+        sendResponse({ status: "ok" });
+    }
+});
+
 API.action.onClicked.addListener((tab) => {
     // Show loading badge
+    API.action.setBadgeText({ tabId: tab.id, text: '...' });
     try {
-        API.action.setBadgeText({ tabId: tab.id, text: '...' });
         API.action.setBadgeBackgroundColor({ tabId: tab.id, color: '#4285F4' });
     } catch (e) {
-        // Firefox Android may not support badge background color
+        // Firefox Android does not support badge background color
     }
-
     API.tabs.sendMessage(tab.id, { action: 'summarizeHeadlines' });
 });
 
-// Listen for messages from content scripts
+const dl = 5 * 6;
+
+// Listen for messages from the content script
 API.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    switch (request.action) {
+    if (request.action === 'fetchContent') {
 
-        case 'fetchContent':
-            fetch(request.url)
-                .then(res => res.text())
-                .then(html => {
-                    if (html.includes("Please enable JS and disable any ad blocker")) {
-                        // Retry fetch inside page context
-                        API.scripting.executeScript({
+        fetch(request.url)
+            .then(response => response.text())
+            .then(html => {
+                if (html.includes("Please enable JS and disable any ad blocker")) {
+
+                    API.scripting.executeScript(
+                        {
                             target: { tabId: sender.tab.id },
-                            func: (url) => new Promise((resolve, reject) => {
-                                const fetchContent = () => fetch(url)
-                                    .then(r => r.text()).then(resolve).catch(err => reject(err));
-                                const checkReadyState = () => {
-                                    if (document.readyState === 'complete') fetchContent();
-                                    else setTimeout(checkReadyState, 100);
-                                };
-                                checkReadyState();
-                            }),
-                            args: [request.url]
-                        }, results => {
-                            if (results?.[0]?.result) sendResponse({ html: results[0].result });
-                            else sendResponse({ error: 'Error fetching article content' });
-                        });
-                    } else sendResponse({ html });
-                })
-                .catch(err => sendResponse({ error: err.message }));
-            return true;
+                            func: (url) => {
+                                return new Promise((resolve, reject) => {
+                                    const fetchContent = () => {
+                                        fetch(url)
+                                            .then(response => response.text())
+                                            .then(html => resolve(html))
+                                            .catch(err => reject(err.message));
+                                    };
+                                    const checkReadyState = () => {
+                                        if (document.readyState === 'complete') {
+                                            fetchContent();
+                                        } else {
+                                            setTimeout(checkReadyState, 100);
+                                        }
+                                    };
+                                    checkReadyState();
+                                });
+                            },
+                            args: [request.url],
+                        },
+                        (results) => {
+                            if (results?.[0]?.result) {
+                                sendResponse({ html: results[0].result });
+                            } else {
+                                sendResponse({ error: 'Error fetching article content' });
+                            }
+                        }
+                    );
 
-        case 'AIcall':
-            handleAICall(request, sendResponse);
-            return true;
+                } else {
+                    sendResponse({ html });
+                }
+            })
+            .catch(error => sendResponse({ error: error.message }));
 
-        case 'checkPremium':
-            API.storage.sync.get(['premium'], r => sendResponse({ premium: !!r.premium }));
-            return true;
-
-        case 'headlineChanged':
-            if (sender.tab?.id != null) API.action.setBadgeText({ tabId: sender.tab.id, text: '' });
-            sendResponse({ status: 'badge cleared' });
-            return true;
-
-        case 'checkDailyLimit':
-            checkDailyLimit(sendResponse);
-            return true;
-
-        case 'incrementDailyCount':
-            incrementDailyCount(sendResponse);
-            return true;
+        return true;
     }
-});
 
-// ----------------------
-// Helper functions
-// ----------------------
+    else if (request.action === 'AIcall') {
+        const apiKey = request.apiKey;
+        const model = request.model;
+        const apiProvider = request.apiProvider || "groq";
 
-function handleAICall(request, sendResponse) {
-    const { apiKey, model, apiProvider = "groq", prompt } = request;
-    const systemPrompt = request.systemPrompt?.trim() || "Generate an objective, non-clickbait headline...";
-    let baseURL, body, headers;
+        const systemPrompt =
+            request.systemPrompt?.trim()?.length > 0
+                ? request.systemPrompt
+                : `Generate an objective, non-clickbait headline...`;
 
-    switch (apiProvider) {
-        case "claude":
+        let baseURL;
+
+        if (apiProvider === "groq") {
+            baseURL = "https://api.groq.com/openai/v1/chat/completions";
+        } else if (apiProvider === "openai") {
+            baseURL = "https://api.openai.com/v1/chat/completions";
+        } else if (apiProvider === "claude") {
             baseURL = "https://api.anthropic.com/v1/messages";
-            body = JSON.stringify({ model, max_tokens: 300, system: systemPrompt, messages: [{ role: "user", content: prompt }] });
-            headers = { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" };
-            break;
-        case "gemini":
+        } else if (apiProvider === "gemini") {
             baseURL = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-            body = JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }] });
-            headers = { "Content-Type": "application/json", "x-goog-api-key": apiKey };
-            break;
-        case "openai":
-        case "groq":
-        default:
-            baseURL = apiProvider === "openai"
-                ? "https://api.openai.com/v1/chat/completions"
-                : "https://api.groq.com/openai/v1/chat/completions";
+        } else {
+            baseURL = "https://api.groq.com/openai/v1/chat/completions";
+        }
+
+        let prompt = request.prompt;
+        console.log(prompt);
+
+        let body, headers;
+
+        if (apiProvider === "claude") {
+            body = JSON.stringify({
+                model,
+                max_tokens: 300,
+                system: systemPrompt,
+                messages: [{ role: "user", content: prompt }]
+            });
+            headers = {
+                "Content-Type": "application/json",
+                "x-api-key": apiKey,
+                "anthropic-version": "2023-06-01"
+            };
+        }
+
+        else if (apiProvider === "gemini") {
+            body = JSON.stringify({
+                contents: [{ role: "user", parts: [{ text: prompt }] }]
+            });
+            headers = {
+                "Content-Type": "application/json",
+                "x-goog-api-key": apiKey
+            };
+        }
+
+        else {
             body = JSON.stringify({
                 model,
                 messages: [
@@ -107,63 +146,117 @@ function handleAICall(request, sendResponse) {
                 max_tokens: 300,
                 top_p: 0.4
             });
-            headers = { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` };
-            break;
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            };
+        }
+
+        fetch(baseURL, {
+            method: "POST",
+            headers,
+            body
+        })
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 429)
+                        throw new Error(`Rate limit. Retry in ${response.headers.get('retry-after') || 'a few'} seconds`);
+                    if (response.status === 401)
+                        throw new Error('Invalid API key');
+                    throw new Error('Error fetching summary');
+                }
+                return response.json();
+            })
+            .then(data => {
+                let summary;
+                if (apiProvider === "claude") {
+                    summary = data.content?.[0]?.text || data.completion || "";
+                } else if (apiProvider === "gemini") {
+                    summary = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                } else {
+                    summary = data.choices?.[0]?.message?.content || "";
+                }
+                sendResponse({ summary });
+            })
+            .catch(error => sendResponse({ error: error.message }));
+
+        return true;
     }
 
-    fetch(baseURL, { method: "POST", headers, body })
-        .then(res => {
-            if (!res.ok) {
-                if (res.status === 429) throw new Error(`Rate limit. Retry in ${res.headers.get('retry-after') || 'a few'}s`);
-                if (res.status === 401) throw new Error('Invalid API key');
-                throw new Error('Error fetching summary');
+    else if (request.action === 'checkPremium') {
+        API.storage.sync.get(['premium'], r =>
+            sendResponse({ ipb: !!r.premium })
+        );
+        return true;
+    }
+
+    else if (request.action === 'headlineChanged') {
+        API.action.setBadgeText({ tabId: sender.tab.id, text: '' });
+        sendResponse({ status: 'badge cleared' });
+        return;
+    }
+
+    else if (request.action === 'checkDailyLimit') {
+        const today = new Date().toDateString();
+
+        API.storage.local.get(['dailyUsage'], result => {
+            try {
+                const usage = result.dailyUsage || {};
+
+                // Cleanup
+                for (const k of Object.keys(usage)) {
+                    if (k !== today) delete usage[k];
+                }
+
+                const count = usage[today] || 0;
+
+                sendResponse({
+                    canProceed: count < dl,
+                    count,
+                    reason: count >= dl ? 'dailyLimit' : null
+                });
+            } catch (e) {
+                sendResponse({ error: e.message });
             }
-            return res.json();
-        })
-        .then(data => {
-            let summary = "";
-            if (apiProvider === "claude") summary = data.content?.[0]?.text || data.completion || "";
-            else if (apiProvider === "gemini") summary = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            else summary = data.choices?.[0]?.message?.content || "";
-            sendResponse({ summary });
-        })
-        .catch(err => sendResponse({ error: err.message }));
-}
-
-function checkDailyLimit(sendResponse) {
-    const today = new Date().toDateString();
-    API.storage.local.get(['dailyUsage'], result => {
-        const usage = result.dailyUsage || {};
-        for (const k of Object.keys(usage)) if (k !== today) delete usage[k];
-        const count = usage[today] || 0;
-        sendResponse({ canProceed: count < DAILY_LIMIT, count, reason: count >= DAILY_LIMIT ? 'dailyLimit' : null });
-    });
-}
-
-function incrementDailyCount(sendResponse) {
-    const today = new Date().toDateString();
-    API.storage.local.get(['dailyUsage'], result => {
-        const usage = result.dailyUsage || {};
-        usage[today] = (usage[today] || 0) + 1;
-        API.storage.local.set({ dailyUsage: usage }, () => {
-            sendResponse({ limitReached: usage[today] >= DAILY_LIMIT, count: usage[today] });
         });
-    });
-}
 
-// ----------------------
-// External message listener
-// ----------------------
+        return true;
+    }
 
+    if (request.action === 'incrementDailyCount') {
+        const today = new Date().toDateString();
+
+
+        API.storage.local.get(['dailyUsage'], result => {
+            const usage = result.dailyUsage || {};
+            usage[today] = (usage[today] || 0) + 1;
+
+            API.storage.local.set({ dailyUsage: usage }, () => {
+                sendResponse({
+                    limitReached: usage[today] >= dl,
+                    count: usage[today]
+                });
+            });
+        });
+
+        return true;
+    }
+});
+
+// External messaging
 const REQUIRED_TOKEN = 'e23de-32dd3-d2fg3fw-f34f3w';
 
 API.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-    if (message.type === "activatePremium" && message.token === REQUIRED_TOKEN) {
-        API.storage.sync.set({ premium: true }, () => console.log('Premium unlocked!'));
-        if (API.runtime.openOptionsPage) {
-            setTimeout(() => API.runtime.openOptionsPage(), 3000);
-        }
-        sendResponse({ status: 'success' });
+    if (message.type === "activatePremium" && message.token == REQUIRED_TOKEN) {
+
+        API.storage.sync.set({ premium: true }, () => {
+            console.log('Premium unlocked!');
+        });
+
+        setTimeout(() => {
+            API.runtime.openOptionsPage();
+        }, 10000);
+
         return true;
     }
 });

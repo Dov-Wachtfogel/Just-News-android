@@ -30,7 +30,23 @@ async function initializeContentScript() {
   // Add tooltip styles to the page
   addTooltipStyles();
 
-  // Listen for messages from the background script
+
+    browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.type === "activatePremium") {
+            console.log("Activating premium with token:", message.token);
+
+            // Save token
+            browser.storage.local.set({ premiumToken: message.token });
+
+            // Open options page
+            browser.runtime.openOptionsPage();
+
+            sendResponse({ status: "ok" });
+        }
+    });
+
+
+    // Listen for messages from the background script
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'summarizeHeadlines') {
       counter = 0;

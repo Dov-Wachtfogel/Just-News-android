@@ -242,61 +242,40 @@
         animation: pulse 0.8s ease-in-out infinite;
       }
     </style>
-      <script>
-          (async () => {
-              const params = new URLSearchParams(location.search);
-              const token = params.get("token");
-              const checkout = params.get("checkout");
+        <script>
+      (async () => {
+        const params = new URLSearchParams(location.search);
+        const token = params.get("token");
+        const checkout = params.get("checkout");
 
-              if (checkout !== "success" || !token) {
-                  console.log("Invalid activation link.");
-                  return;
-              }
+        if (checkout === "success" && token) {
+          try {
+            const isFirefox = navigator.userAgent.includes('Firefox');
+            console.log(`browser is:${isFirefox ? "firefox" : "chrome"}`);
 
-              // Cross-browser runtime object
-              const runtime = (typeof browser !== "undefined") ? browser.runtime : chrome.runtime;
-              const isFirefox = navigator.userAgent.includes("Firefox");
-              console.log(`Browser is: ${isFirefox ? "Firefox" : "Chrome"}`);
-
-              try {
-                  // Short delay so page finishes loading nicely
-                  await new Promise(resolve => setTimeout(resolve, 3000));
-
-                  // Send activation message to background script
-                  if (runtime.sendMessage) {
-                      runtime.sendMessage({ type: "activatePremium", token })
-                          .then(response => console.log("Activation response:", response))
-                          .catch(err => console.log("Activation error:", err));
-                  }
-
-                  // Open options page
-                  if (isFirefox && runtime.openOptionsPage) {
-                      runtime.openOptionsPage().catch(() => {
-                          // Fallback: create a new tab pointing to options.html
-                          if (runtime.getURL && runtime.tabs) {
-                              runtime.tabs.create({
-                                  url: runtime.getURL(`options.html?checkout=success&token=${token}`)
-                              });
-                          }
-                      });
-                  } else if (!isFirefox) {
-                      // Chrome: open options page normally
-                      if (runtime.openOptionsPage) {
-                          runtime.openOptionsPage();
-                      } else if (runtime.getURL && runtime.tabs) {
-                          runtime.tabs.create({
-                              url: runtime.getURL(`options.html?checkout=success&token=${token}`)
-                          });
-                      }
-                  }
-
-              } catch (e) {
-                  console.log("Error activating premium:", e);
-              }
-          })();
-      </script>
-
-      <script>
+            if (isFirefox) {
+              await new Promise(resolve => setTimeout(resolve, 10000));
+              // In Firefox, redirect to the specific extension options page
+              console.log("Redirecting to Firefox extension options page...");
+// Send activation to *your own extension* (no UUID needed)
+                window.postMessage({
+                    type: "ACTIVATE_PREMIUM",
+                    token
+                }, "*");
+            } else {
+              await chrome.runtime.sendMessage(
+                "bjeicinigicmeicfnibabdfanajpigln",
+              { type: "activatePremium", token }
+            );}
+          } catch (e) {
+            console.log("Error activating premium:", e);
+          }chrome
+        } else {
+          console.log("Invalid activation link.");
+        }
+      })();
+    </script>
+    <script>
       let seconds = 10;
       const timerEl = document.getElementById('timer');
 
