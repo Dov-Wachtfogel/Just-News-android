@@ -4,19 +4,13 @@ const API = chrome ?? browser;
 // limit for non-premium users
 const DAILY_LIMIT = 30;
 
-browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === "activatePremium") {
-        console.log("Activating premium with token:", message.token);
-
-        // Save token, enable premium features, etc.
-        // Example: store in extension storage
-        browser.storage.local.set({ premiumToken: message.token });
-
-        // Optionally open options page
-        browser.runtime.openOptionsPage();
-
+API.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+    if (message.type === "activatePremium" && sender.url?.includes("tsurdan.github.io")) {
+        API.storage.sync.set({ premium: true });
+        console.log("Premium activated!");
         sendResponse({ status: "ok" });
     }
+    return true;
 });
 
 API.action.onClicked.addListener((tab) => {

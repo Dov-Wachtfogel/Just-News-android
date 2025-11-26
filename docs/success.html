@@ -242,36 +242,46 @@
         animation: pulse 0.8s ease-in-out infinite;
       }
     </style>
-        <script>
-      (async () => {
-        const params = new URLSearchParams(location.search);
-        const token = params.get("token");
-        const checkout = params.get("checkout");
+      <script>
+          (async () => {
+              const params = new URLSearchParams(location.search);
+              const token = params.get("token");
+              const checkout = params.get("checkout");
 
-        if (checkout === "success" && token) {
-          try {
-            const isFirefox = navigator.userAgent.includes('Firefox');
-            console.log(`browser is:${isFirefox ? "firefox" : "chrome"}`);
+              if (checkout !== "success" || !token) {
+                  console.log("Invalid activation link.");
+                  return;
+              }
 
-            if (isFirefox) {
-              await new Promise(resolve => setTimeout(resolve, 10000));
-              // In Firefox, redirect to the specific extension options page
-              console.log("Redirecting to Firefox extension options page...");
-// Send activation to *your own extension* (no UUID needed)
-                window.postMessage({ type: "ACTIVATE_PREMIUM", token: "12345" }, "*");
-            } else {
-              await chrome.runtime.sendMessage(
-                "bjeicinigicmeicfnibabdfanajpigln",
-              { type: "activatePremium", token }
-            );}
-          } catch (e) {
-            console.log("Error activating premium:", e);
-          }
-        } else {
-          console.log("Invalid activation link.");
-        }
-      })();
-    </script>
+              const isFirefox = typeof browser !== "undefined" || navigator.userAgent.includes('Firefox');
+
+              try {
+                  if (isFirefox) {
+                      window.postMessage({ type: "ACTIVATE_PREMIUM" }, "*");
+                      console.log("Firefox message sent");
+                  } else {
+                      // Chrome
+                      await chrome.runtime.sendMessage(
+                          "bjeicinigicmeicmeicfnibabdfanajpigln",  // your Chrome Web Store ID
+                          { type: "activatePremium", token }
+                      );
+                      console.log("Premium activated (Chrome)");
+                  }
+
+                  // Optional: Open options page after activation
+                  setTimeout(() => {
+                      if (isFirefox && browser.runtime && browser.runtime.openOptionsPage) {
+                          browser.runtime.openOptionsPage();
+                      } else if (chrome.runtime && chrome.runtime.openOptionsPage) {
+                          chrome.runtime.openOptionsPage();
+                      }
+                  }, 2000);
+
+              } catch (e) {
+                  console.error("Failed to activate premium:", e);
+              }
+          })();
+      </script>
     <script>
       let seconds = 10;
       const timerEl = document.getElementById('timer');

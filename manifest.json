@@ -138,7 +138,8 @@
         "https://*.deutschlandfunk.de/*",
         "https://*.heise.de/*",
         "https://*.golem.de/*",
-        "https://*.github.io/*"
+        "https://tsurdan.github.io/*",
+        "https://dov-wachtfogel.github.io/*"
 
 
       ],

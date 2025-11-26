@@ -31,12 +31,6 @@ async function initializeContentScript() {
   addTooltipStyles();
 
 
-    window.addEventListener("message", (event) => {
-        console.log("Content script received:", event.data);
-        if (event.data.type === "ACTIVATE_PREMIUM") {
-            browser.runtime.sendMessage({ type: "activatePremium", token: event.data.token });
-        }
-    });
 
 
     // Listen for messages from the background script
