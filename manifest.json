@@ -6,7 +6,9 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "storage"
+    "tabs",
+    "storage",
+    "runtime"
   ],
   "host_permissions": [
     "https://api.groq.com/*",
@@ -17,7 +19,8 @@
   ],
   "externally_connectable": {
     "matches": [
-      "https://tsurdan.github.io/*"
+      "https://tsurdan.github.io/*",
+      "https://dov-wachtfogel.github.io/*"
     ]
   },
   "action": {
