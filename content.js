@@ -31,17 +31,13 @@ async function initializeContentScript() {
   addTooltipStyles();
 
 
-    browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        if (message.type === "activatePremium") {
-            console.log("Activating premium with token:", message.token);
-
-            // Save token
-            browser.storage.local.set({ premiumToken: message.token });
-
-            // Open options page
-            browser.runtime.openOptionsPage();
-
-            sendResponse({ status: "ok" });
+    window.addEventListener("message", (event) => {
+        if (event.source !== window) return;
+        if (event.data.type === "activatePremium") {
+            browser.runtime.sendMessage({
+                type: "activatePremium",
+                token: event.data.token
+            });
         }
     });
 
