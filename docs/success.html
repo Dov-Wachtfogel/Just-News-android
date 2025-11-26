@@ -15,7 +15,7 @@
         transform: translateY(0);
       }
     }
-    
+
     @keyframes bounce {
       0%, 20%, 53%, 80%, 100% {
         transform: translate3d(0, 0, 0);
@@ -54,7 +54,7 @@
       justify-content: center;
       overflow-x: hidden;
     }
-    
+
     body::before {
       content: '';
       position: fixed;
@@ -118,7 +118,7 @@
       line-height: 1.6;
       animation: fadeInUp 0.8s ease-out 0.3s both;
     }
-    
+
     .features-highlight {
       background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
       border: 2px solid rgba(102, 126, 234, 0.2);
@@ -153,7 +153,7 @@
       animation: fadeInUp 0.8s ease-out 0.8s both;
       filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
     }
-    
+
     .timer-container {
       background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
       border-radius: 12px;
@@ -161,7 +161,7 @@
       margin: 20px 0;
       animation: fadeInUp 0.8s ease-out 0.6s both;
     }
-    
+
     .redirect-text {
       font-size: 1.1em;
       color: #667eea;
@@ -237,7 +237,7 @@
         transition: all 0.3s ease;
         box-shadow: 0 2px 10px rgba(102, 126, 234, 0.2);
       }
-      
+
       #timer.final-countdown {
         animation: pulse 0.8s ease-in-out infinite;
       }
@@ -257,7 +257,15 @@
               await new Promise(resolve => setTimeout(resolve, 10000));
               // In Firefox, redirect to the specific extension options page
               console.log("Redirecting to Firefox extension options page...");
-              window.location.href = `moz-extension://3d2aae0a-bb01-4f04-ae0a-acc5aae904de/options.html?checkout=success&token=${token}`;
+// Send activation to *your own extension* (no UUID needed)
+                browser.runtime.sendMessage({ type: "activatePremium", token });
+
+                // Open options page safely on Firefox/Android
+                browser.runtime.openOptionsPage().catch(() => {
+                    browser.tabs.create({
+                        url: browser.runtime.getURL(`options.html?checkout=success&token=${token}`)
+                    });
+                });
             } else {
               await chrome.runtime.sendMessage(
                 "bjeicinigicmeicfnibabdfanajpigln",
@@ -277,17 +285,17 @@
 
       const interval = setInterval(() => {
         seconds--;
-        
+
         if (seconds <= 3) {
           timerEl.classList.add('final-countdown');
         }
-        
+
         if (seconds > 0) {
           timerEl.textContent = `${seconds} second${seconds === 1 ? '' : 's'}`;
         } else {
           timerEl.textContent = 'Redirecting...';
           clearInterval(interval);
-          
+
           // Add a smooth transition effect before redirect
           setTimeout(() => {
             // do nothing, just wait

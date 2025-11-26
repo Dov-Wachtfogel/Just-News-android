@@ -211,6 +211,7 @@ API.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'incrementDailyCount') {
         const today = new Date().toDateString();
 
+
         API.storage.local.get(['dailyUsage'], result => {
             const usage = result.dailyUsage || {};
             usage[today] = (usage[today] || 0) + 1;
