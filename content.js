@@ -38,13 +38,13 @@ async function initializeContentScript() {
 
              try {
                  if (isFirefox) {
-                     browser.runtime.sendMessage({ type: "activatePremium" }, "*");
+                     browser.runtime.sendMessage("something", { type: "activatePremium", token:  token}, "*");
                      console.log("Firefox message sent");
                  } else {
                      // Chrome
                      await chrome.runtime.sendMessage(
                          "bjeicinigicmeicmeicfnibabdfanajpigln",  // your Chrome Web Store ID
-                         { type: "activatePremium", token }
+                         { type: "activatePremium", token: token }
                      );
                      console.log("Premium activated (Chrome)");
                  }
