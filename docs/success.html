@@ -257,7 +257,7 @@
 
               try {
                   if (isFirefox) {
-                      window.postMessage({ type: "ACTIVATE_PREMIUM" }, "*");
+                      window.postMessage({ type: "activatePremium" }, "*");
                       console.log("Firefox message sent");
                   } else {
                       // Chrome
@@ -270,8 +270,7 @@
 
                   // Optional: Open options page after activation
                   setTimeout(() => {
-                      if (isFirefox && browser.runtime && browser.runtime.openOptionsPage) {
-                          browser.runtime.openOptionsPage();
+                      if (isFirefox) {
                       } else if (chrome.runtime && chrome.runtime.openOptionsPage) {
                           chrome.runtime.openOptionsPage();
                       }
