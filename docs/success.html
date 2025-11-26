@@ -260,7 +260,7 @@
 // Send activation to *your own extension* (no UUID needed)
                 window.postMessage({
                     type: "activatePremium",
-                    token
+                    token: token
                 }, "*");
             } else {
               await chrome.runtime.sendMessage(
