@@ -243,9 +243,7 @@
       }
     </style>
         <script>
-            const API = chrome ?? browser;
-
-            (async () => {
+      (async () => {
         const params = new URLSearchParams(location.search);
         const token = params.get("token");
         const checkout = params.get("checkout");
@@ -260,12 +258,12 @@
               // In Firefox, redirect to the specific extension options page
               console.log("Redirecting to Firefox extension options page...");
 // Send activation to *your own extension* (no UUID needed)
-                browser.runtime.sendMessage({ type: "activatePremium", token });
+                runtime.sendMessage({ type: "activatePremium", token });
 
                 // Open options page safely on Firefox/Android
-                browser.runtime.openOptionsPage().catch(() => {
-                    browser.tabs.create({
-                        url: browser.runtime.getURL(`options.html?checkout=success&token=${token}`)
+                runtime.openOptionsPage().catch(() => {
+                    tabs.create({
+                        url: runtime.getURL(`options.html?checkout=success&token=${token}`)
                     });
                 });
             } else {
@@ -275,7 +273,7 @@
             );}
           } catch (e) {
             console.log("Error activating premium:", e);
-          }
+          }chrome
         } else {
           console.log("Invalid activation link.");
         }
