@@ -176,6 +176,13 @@ API.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
+    else if (request.action === 'checkPopUp') {
+        API.storage.sync.get(['popup'], r =>
+            sendResponse({ ipb: !!r.popup})
+        );
+        return true;
+    }
+
     else if (request.action === 'headlineChanged') {
         API.action.setBadgeText({ tabId: sender.tab.id, text: '' });
         sendResponse({ status: 'badge cleared' });

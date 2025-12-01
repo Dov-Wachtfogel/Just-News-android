@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectItems = document.getElementById('selectItems');
   const providerIcon = document.getElementById('providerIcon');
   const preferedLang = document.getElementById('preferedLang');
+  const showPopupToggle = document.getElementById('showPopupToggle');
+  const popupStatus = document.getElementById('popupStatus');
   
   // API key link elements
   const groqLink = document.getElementById('groqLink');
@@ -100,6 +102,23 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       preferedLang.value = 'english'; // Set default to English
     }
+      // === SHOW POPUP MESSAGES TOGGLE – 100% SAFE ===
+      // Default is ON (true)
+      const showPopupEnabled = data.showPopupMessages !== false;   // ← safe even if data.showPopupMessages is undefined
+
+      showPopupToggle.checked = showPopupEnabled;
+      popupStatus.textContent = showPopupEnabled ? "ON" : "OFF";
+      popupStatus.style.color = showPopupEnabled ? "#4285F4" : "#999";
+
+      // Update text when user toggles
+      showPopupToggle.addEventListener('change', function () {
+          const enabled = this.checked;
+          popupStatus.textContent = enabled ? "ON" : "OFF";
+          popupStatus.style.color = enabled ? "#4285F4" : "#999";
+          console.log("enabled", enabled);
+          // Save instantly
+          chrome.storage.sync.set({ popup: enabled });
+      });
     if (data.apiProvider) {
       apiProvider.value = data.apiProvider;
       // Update custom dropdown display
@@ -160,6 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCharCounter(systemPrompt, systemPromptCounter, 1000);
     updateCharCounter(customPrompt, customPromptCounter, 800);
   });
+
 
   // Check premium status and update UI accordingly
   function updatePremiumUI(ipb) {

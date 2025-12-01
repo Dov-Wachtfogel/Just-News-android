@@ -1,11 +1,13 @@
+const API = chrome ?? browser;
 let premium = false; // Track premium status
 let isInitialized = false;
 let counter = 0;
 let articleSummaries = new Map(); // Cache for article summaries
 let ipu = false;
+let showPopUp = true;
 
 // Function to initialize premium status - only called once during startup
-async function initializePremiumStatus() {
+async function initializeConfigurations() {
   try {
     const response = await chrome.runtime.sendMessage({ action: 'checkPremium' });
     ipu = response.ipb;
@@ -14,6 +16,14 @@ async function initializePremiumStatus() {
     console.log('Error checking premium status:', error);
     ipu = false;
   }
+    try {
+        const response = await chrome.runtime.sendMessage({ action: 'checkPopUp' });
+        showPopUp = response.ipb;
+        console.log('Popup status initialized:', showPopUp);
+    } catch (error) {
+        console.log('Error checking popup status:', error);
+        showPopUp = true;
+    }
 }
 
 // Sync function to check premium status - uses cached value
@@ -38,13 +48,13 @@ async function initializeContentScript() {
 
              try {
                  if (isFirefox) {
-                     await browser.runtime.sendMessage({ type: "activatePremium", token:  token});
+                     browser.runtime.sendMessage("something", { type: "activatePremium", token:  token}, "*");
                      console.log("Firefox message sent");
                  } else {
                      // Chrome
                      await chrome.runtime.sendMessage(
                          "bjeicinigicmeicmeicfnibabdfanajpigln",  // your Chrome Web Store ID
-                         { type: "activatePremium", token: token }
+                         { type: "activatePremium", token }
                      );
                      console.log("Premium activated (Chrome)");
                  }
@@ -62,13 +72,16 @@ async function initializeContentScript() {
          })();
 
   }
+
   // Initialize premium status
-  await initializePremiumStatus();
+  await initializeConfigurations();
   
   // Add tooltip styles to the page
   addTooltipStyles();
 
-
+    if (showPopUp){
+        showPopupWhenReady();
+    }
 
 
     // Listen for messages from the background script
@@ -1326,5 +1339,24 @@ async function createNotification(message) {
   });
 }
 
+async function autoHeaderReplace(){
+
+}
+
+function showPopupWhenReady() {
+    // Step 1: Wait for DOM to be ready
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", () => {
+            if (confirm("remake headlines?")){
+                summarizeHeadlines();
+            }
+        });
+    } else {
+        // DOM already ready → just show it
+        if (confirm("remake headlines?")){
+            summarizeHeadlines();
+        }
+    }
+}
 
 initializeContentScript();
